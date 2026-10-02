@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Aqlli Uy AI - Ovozli Boshqaruv & Erkin Muloqot</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4F46E5">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0B0F19; color: #F8FAFC; padding-bottom: 120px; overflow-x: hidden; }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; letter-spacing: 0.3px; }
+    .brand-icon { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #4F46E5, #06B6D4); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); }
+    
+    .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+    .badge.demo { background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.4); }
+    .badge.connected { background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.4); }
+
+    .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+    /* Til Tanlash Qatori */
+    .lang-bar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .lang-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94A3B8;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .lang-pill.active {
+      background: rgba(79, 70, 229, 0.35);
+      border-color: #818CF8;
+      color: #F8FAFC;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+    }
+
+    /* Hero Section */
+    .hero-card {
+      position: relative;
+      background: radial-gradient(circle at 50% 25%, rgba(79, 70, 229, 0.25) 0%, rgba(15, 23, 42, 0.9) 75%);
+      border-radius: 24px;
+      padding: 24px 20px 20px;
+      border: 1px solid rgba(129, 140, 248, 0.2);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+      margin-bottom: 22px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      color: #34D399;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    /* Voice Orb */
+    .orb-container {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .orb-glow {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle, #4F46E5 0%, #06B6D4 60%, transparent 80%);
+      filter: blur(14px);
+      opacity: 0.6;
+      transition: all 0.3s ease;
+      animation: pulse-slow 3s infinite alternate;
+    }
+    .orb-sphere {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4338CA 0%, #0891B2 50%, #2563EB 100%);
+      box-shadow: 0 0 25px rgba(8, 145, 178, 0.5), inset 0 0 15px rgba(255,255,255,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: #fff;
+      transition: all 0.25s;
+    }
+    .orb-container:hover .orb-sphere { transform: scale(1.05); }
+    .orb-container.listening .orb-glow {
+      filter: blur(22px);
+      opacity: 0.95;
+      background: radial-gradient(circle, #EF4444 0%, #F59E0B 60%, transparent 80%);
+      transform: scale(1.3);
+    }
+    .orb-container.listening .orb-sphere {
+      background: linear-gradient(135deg, #EF4444 0%, #EA580C 100%);
+      box-shadow: 0 0 35px rgba(239, 68, 68, 0.85);
+      transform: scale(1.1);
+      animation: sound-bounce 0.6s infinite alternate;
+    }
+    .orb-container.speaking .orb-glow {
+      background: radial-gradient(circle, #10B981 0%, #3B82F6 60%, transparent 80%);
+      transform: scale(1.2);
+    }
+    .orb-container.speaking .orb-sphere {
+      background: linear-gradient(135deg, #10B981 0%, #0284C7 100%);
+      box-shadow: 0 0 35px rgba(16, 185, 129, 0.8);
+      animation: sound-bounce 0.4s infinite alternate;
+    }
+
+    @keyframes pulse-slow {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      100% { transform: scale(1.08); opacity: 0.75; }
+    }
+    @keyframes sound-bounce {
+      0% { transform: scale(1.02); }
+      100% { transform: scale(1.12); }
+    }
+
+    .waveform-canvas { width: 100%; height: 34px; margin: 8px 0; display: block; }
+    
+    .hero-speech-box {
+      font-size: 16px;
+      font-weight: 500;
+      color: #FFFFFF;
+      min-height: 48px;
+      line-height: 1.45;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      word-break: break-word;
+    }
+    .hero-subtext {
+      font-size: 13px;
+      color: #94A3B8;
+      margin-top: 6px;
+      min-height: 20px;
+    }
+
+    .mode-chips { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+    .chip { background: rgba(255,255,255,0.06); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #CBD5E1; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; user-select: none; }
+    .chip.active { background: rgba(79, 70, 229, 0.35); border-color: #818CF8; color: #C7D2FE; }
+
+    /* Datchiklar va Boshqaruv */
+    .section-title { font-size: 14px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 10px 0; display: flex; justify-content: space-between; align-items: center; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { background: #131D31; border-radius: 16px; padding: 14px; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; justify-content: space-between; min-height: 94px; transition: all 0.25s ease; position: relative; overflow: hidden; }
+    .card.active { border-color: rgba(99, 102, 241, 0.5); background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(79, 70, 229, 0.18)); box-shadow: 0 4px 18px rgba(79, 70, 229, 0.2); }
+    .card-top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #94A3B8; }
+    .card-top i { font-size: 18px; }
+    .sensor-val { font-size: 20px; font-weight: 700; color: #F8FAFC; margin-top: 8px; }
+    .temp-val { color: #FB923C; }
+    .hum-val { color: #60A5FA; }
+    .gas-val { color: #2DD4BF; }
+    .motion-val { color: #F59E0B; }
+    .card-info h4 { font-size: 14px; font-weight: 600; color: #F8FAFC; margin-top: 6px; }
+    .card-info p { font-size: 12px; color: #64748B; margin-top: 2px; }
+    .card.active .card-info p { color: #818CF8; font-weight: 600; }
+
+    /* Switch toggle */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: #4F46E5; }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Pastki Boshqaruv Qatori */
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(16px); padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; z-index: 100; max-width: 600px; margin: 0 auto; }
+    .mic-floating-btn { width: 48px; height: 48px; border-radius: 50%; background: #4F46E5; border: none; color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.5); flex-shrink: 0; transition: all 0.2s; }
+    .mic-floating-btn.listening { background: #EF4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); animation: pulse 1s infinite alternate; }
+    .text-input { flex: 1; background: #1E293B; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 12px 18px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    .text-input:focus { border-color: #6366F1; }
+    .send-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.08); border: none; color: #60A5FA; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .send-btn:hover { background: rgba(255,255,255,0.15); }
+
+    /* Modallar */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 200; }
+    .modal-content { background: #1E293B; width: 90%; max-width: 440px; margin: 60px auto 0; border-radius: 20px; padding: 22px; border: 1px solid rgba(255,255,255,0.1); max-height: 85vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; }
+    .modal-header h3 { font-size: 16px; font-weight: 700; color: #F8FAFC; }
+    .close-btn { background: none; border: none; color: #94A3B8; font-size: 20px; cursor: pointer; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; color: #94A3B8; margin-bottom: 6px; font-weight: 600; }
+    .form-group select, .form-group input { width: 100%; background: #0B0F19; border: 1px solid rgba(255,255,255,0.12); padding: 10px 12px; border-radius: 10px; color: #fff; font-size: 13px; outline: none; }
+    .btn-save { width: 100%; background: #4F46E5; color: #fff; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon"><i class="fa-solid fa-house-signal"></i></div>
+      <span>Aqlli Uy AI</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onclick="openSettings()" style="background: none; border: none; color: #94A3B8; font-size: 18px; cursor: pointer;" title="Sozlamalar"><i class="fa-solid fa-sliders"></i></button>
+      <div id="connBadge" class="badge demo" onclick="toggleDemoMode()">
+        <i class="fa-solid fa-microchip"></i> <span id="connText">Virtual ESP32 (Demo)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Til Tanlash Qatori -->
+    <div class="lang-bar">
+      <div class="lang-pill active" id="lang-uz" onclick="setSttLang('uz-UZ')">🇺🇿 O'zbekcha</div>
+      <div class="lang-pill" id="lang-ru" onclick="setSttLang('ru-RU')">🇷🇺 Ruscha</div>
+      <div class="lang-pill" id="lang-en" onclick="setSttLang('en-US')">🇬🇧 Inglizcha</div>
+    </div>
+
+    <!-- Markaziy Ovozli Muloqot Maydoni -->
+    <div class="hero-card">
+      <div class="status-pill" id="statusPill">
+        <i class="fa-solid fa-sparkles"></i>
+        <span id="statusPillText">Ovozli muloqot tayyor</span>
+      </div>
+
+      <!-- Glowing Voice Orb -->
+      <div class="orb-container" id="orbContainer" onclick="toggleVoice()" title="Mikrofonni yoqish / o'chirish">
+        <div class="orb-glow"></div>
+        <div class="orb-sphere" id="orbSphere">
+          <i class="fa-solid fa-microphone" id="orbIcon"></i>
+        </div>
+      </div>
+
+      <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
+
+      <div class="hero-speech-box" id="speechBox">Sharni bosing va gapiring...</div>
+      <div class="hero-subtext" id="subText">Masalan: "Zal chirog'ini yoq", "Eshikni och", "Salom, qandaysan?"</div>
+
+      <div class="mode-chips">
+        <div class="chip" id="chipContinuous" onclick="toggleContinuousChat()">
+          <i class="fa-solid fa-comments"></i> <span>Uzluksiz Muloqot</span>
+        </div>
+        <div class="chip active" id="chipFast" onclick="toggleShortAnswers()">
+          <i class="fa-solid fa-bolt"></i> <span>Tezkor Javob</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Datchiklar -->
+    <div class="section-title">
+      <span>Uy Muhiti & Sensorlar (Virtual)</span>
+      <span style="font-size: 11px; color: #60A5FA; text-transform: none;"><i class="fa-solid fa-rotate fa-spin" style="animation-duration: 4s;"></i> Jonli ko'rsatkichlar</span>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-top"><span>Harorat</span><i class="fa-solid fa-temperature-half" style="color: #FB923C;"></i></div>
+        <div class="sensor-val temp-val" id="tempVal">23.8 °C</div>
+      </div>
+      <div class="card">
+        <div class="card-top"><span>Namlik</span><i class="fa-solid fa-droplet" style="color: #60A5FA;"></i></div>
+        <div class="sensor-val hum-val" id="humVal">48 %</div>
+      </div>
+      <div class="card">
+        <div class="card-top"><span>Gaz / Tutun</span><i class="fa-solid fa-smog" style="color: #2DD4BF;"></i></div>
+        <div class="sensor-val gas-val" id="gasVal">Xavfsiz (118)</div>
+      </div>
+      <div class="card">
+        <div class="card-top"><span>Harakat</span><i class="fa-solid fa-person-walking" style="color: #F59E0B;"></i></div>
+        <div class="sensor-val motion-val" id="motionVal">Tinch</div>
+      </div>
+    </div>
+
+    <!-- Qurilmalar -->
+    <div class="section-title">
+      <span>Boshqaruv Paneli</span>
+      <span style="font-size: 11px; color: #94A3B8; text-transform: none;">Ovoz yoki tugma orqali</span>
+    </div>
+    <div class="grid">
+      <div class="card" id="card-living_room">
+        <div class="card-top">
+          <i class="fa-regular fa-lightbulb"></i>
+          <label class="switch"><input type="checkbox" id="sw-living_room" onchange="toggleDevice('living_room', this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="card-info"><h4>Mehmonxona</h4><p id="lbl-living_room">O'chiq</p></div>
+      </div>
+
+      <div class="card" id="card-kitchen">
+        <div class="card-top">
+          <i class="fa-solid fa-utensils"></i>
+          <label class="switch"><input type="checkbox" id="sw-kitchen" onchange="toggleDevice('kitchen', this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="card-info"><h4>Oshxona</h4><p id="lbl-kitchen">O'chiq</p></div>
+      </div>
+
+      <div class="card" id="card-bedroom">
+        <div class="card-top">
+          <i class="fa-solid fa-bed"></i>
+          <label class="switch"><input type="checkbox" id="sw-bedroom" onchange="toggleDevice('bedroom', this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="card-info"><h4>Yotoqxona</h4><p id="lbl-bedroom">O'chiq</p></div>
+      </div>
+
+      <div class="card" id="card-fan">
+        <div class="card-top">
+          <i class="fa-solid fa-fan" id="icon-fan"></i>
+          <label class="switch"><input type="checkbox" id="sw-fan" onchange="toggleDevice('fan', this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="card-info"><h4>Ventilyator</h4><p id="lbl-fan">O'chiq</p></div>
+      </div>
+
+      <div class="card" id="card-door">
+        <div class="card-top">
+          <i class="fa-solid fa-door-closed" id="icon-door"></i>
+          <label class="switch"><input type="checkbox" id="sw-door" onchange="toggleDevice('door', this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="card-info"><h4>Eshik Qulfi</h4><p id="lbl-door">Qulflangan</p></div>
+      </div>
+
+      <div class="card active" id="card-security">
+        <div class="card-top">
+          <i class="fa-solid fa-shield-halved"></i>
+          <label class="switch"><input type="checkbox" id="sw-security" onchange="toggleDevice('security', this.checked)" checked><span class="slider"></span></label>
+        </div>
+        <div class="card-info"><h4>Xavfsizlik</h4><p id="lbl-security">Faol</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pastki Boshqaruv Qatori -->
+  <div class="bottom-bar">
+    <button class="mic-floating-btn" id="micBtn" onclick="toggleVoice()"><i class="fa-solid fa-microphone"></i></button>
+    <input type="text" id="cmdInput" class="text-input" placeholder="Buyruq yoki savol yozing..." onkeydown="if(event.key==='Enter') sendManualCommand()">
+    <button class="send-btn" onclick="sendManualCommand()"><i class="fa-solid fa-paper-plane"></i></button>
+  </div>
+
+  <!-- Sozlamalar Modali -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ Tizim Sozlamalari</h3>
+        <button class="close-btn" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="form-group">
+        <label>Ishlash Rejimi</label>
+        <select id="cfgWorkMode">
+          <option value="demo">Virtual ESP32 (Demo - Haqiqiy plata shart emas)</option>
+          <option value="hardware">Haqiqiy ESP32 (MQTT Broker orqali)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Ovoz Tanish Tili (STT)</label>
+        <select id="cfgSttLang">
+          <option value="uz-UZ">O'zbek tili (uz-UZ)</option>
+          <option value="ru-RU">Rus tili (ru-RU)</option>
+          <option value="en-US">Ingliz tili (en-US)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Gemini API Key</label>
+        <input type="password" id="cfgApiKey" placeholder="Gemini API Key kiriting">
+      </div>
+      <button class="btn-save" onclick="saveSettings()">Saqlash</button>
+    </div>
+  </div>
+
+  <script>
+    // ================= GLOBAL HOLAT =================
+    let recognition = null;
+    let isListening = false;
+    let isSpeaking = false;
+    let keepListening = false;
+    let speechSilenceTimer = null;
+
+    let speechBox = document.getElementById('speechBox');
+    let subText = document.getElementById('subText');
+    let orbContainer = document.getElementById('orbContainer');
+    let orbIcon = document.getElementById('orbIcon');
+    let micBtn = document.getElementById('micBtn');
+    let statusPillText = document.getElementById('statusPillText');
+
+    let config = {
+      workMode: localStorage.getItem('work_mode') || 'demo',
+      sttLang: localStorage.getItem('stt_lang') || 'uz-UZ',
+      apiKey: localStorage.getItem('api_key') || '',
+      shortAnswers: localStorage.getItem('short_answers') !== 'false',
+      continuousChat: localStorage.getItem('continuous_chat') === 'true'
+    };
+
+    // ================= VIRTUAL ESP32 SIMULYATORI =================
+    const virtualHouse = {
+      living_room: false,
+      kitchen: false,
+      bedroom: false,
+      fan: false,
+      door_locked: true,
+      security: true,
+      temperature: 23.8,
+      humidity: 48,
+      gas_level: 118,
+      motion: false
+    };
+
+    setInterval(() => {
+      if (config.workMode === 'demo') {
+        virtualHouse.temperature += (Math.random() - 0.5) * 0.2;
+        virtualHouse.temperature = Math.max(23.2, Math.min(24.5, virtualHouse.temperature));
+        document.getElementById('tempVal').innerText = virtualHouse.temperature.toFixed(1) + " °C";
+
+        virtualHouse.humidity += (Math.random() - 0.5) * 0.4;
+        virtualHouse.humidity = Math.max(45, Math.min(52, virtualHouse.humidity));
+        document.getElementById('humVal').innerText = Math.round(virtualHouse.humidity) + " %";
+      }
+    }, 3500);
+
+    function setSttLang(lang) {
+      config.sttLang = lang;
+      localStorage.setItem('stt_lang', lang);
+      if (recognition) {
+        recognition.lang = lang;
+      }
+      updateLangPills();
+      playChime(659, 880);
+    }
+
+    function updateLangPills() {
+      ['uz', 'ru', 'en'].forEach(code => {
+        const el = document.getElementById('lang-' + code);
+        if (el) {
+          const target = code === 'uz' ? 'uz-UZ' : (code === 'ru' ? 'ru-RU' : 'en-US');
+          if (config.sttLang === target) el.classList.add('active'); else el.classList.remove('active');
+        }
+      });
+    }
+
+    function updateConfigUI() {
+      const badge = document.getElementById('connBadge');
+      const connText = document.getElementById('connText');
+
+      if (config.workMode === 'demo') {
+        badge.className = 'badge demo';
+        connText.innerText = 'Virtual ESP32 (Demo)';
+      } else {
+        badge.className = 'badge connected';
+        connText.innerText = 'Haqiqiy ESP32 (MQTT)';
+      }
+
+      updateLangPills();
+
+      const chipCont = document.getElementById('chipContinuous');
+      if (config.continuousChat) chipCont.classList.add('active'); else chipCont.classList.remove('active');
+      const chipFast = document.getElementById('chipFast');
+      if (config.shortAnswers) chipFast.classList.add('active'); else chipFast.classList.remove('active');
+    }
+
+    function toggleDemoMode() {
+      config.workMode = (config.workMode === 'demo') ? 'hardware' : 'demo';
+      localStorage.setItem('work_mode', config.workMode);
+      updateConfigUI();
+      speakText(config.workMode === 'demo' ? "Virtual demo rejim yoqildi." : "Haqiqiy ESP32 rejimi yoqildi.");
+    }
+
+    function toggleContinuousChat() {
+      config.continuousChat = !config.continuousChat;
+      localStorage.setItem('continuous_chat', config.continuousChat);
+      updateConfigUI();
+      speakText(config.continuousChat ? "Uzluksiz muloqot yoqildi." : "Uzluksiz muloqot o'chirildi.");
+    }
+
+    function toggleShortAnswers() {
+      config.shortAnswers = !config.shortAnswers;
+      localStorage.setItem('short_answers', config.shortAnswers);
+      updateConfigUI();
+      playChime(523, 659);
+    }
+
+    function openSettings() {
+      document.getElementById('cfgWorkMode').value = config.workMode;
+      document.getElementById('cfgSttLang').value = config.sttLang;
+      document.getElementById('cfgApiKey').value = config.apiKey;
+      document.getElementById('settingsModal').style.display = 'block';
+    }
+    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+    function saveSettings() {
+      config.workMode = document.getElementById('cfgWorkMode').value;
+      config.sttLang = document.getElementById('cfgSttLang').value;
+      config.apiKey = document.getElementById('cfgApiKey').value.trim();
+      localStorage.setItem('work_mode', config.workMode);
+      localStorage.setItem('stt_lang', config.sttLang);
+      localStorage.setItem('api_key', config.apiKey);
+      if (recognition) recognition.lang = config.sttLang;
+      updateConfigUI();
+      closeSettings();
+    }
+
+    // ================= AUDIO CHIMES =================
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playChime(freq1 = 587, freq2 = 880) {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq1, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq2, audioCtx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+      } catch(e){}
+    }
+
+    // ================= LIVE WAVEFORM CANVAS =================
+    const canvas = document.getElementById('waveformCanvas');
+    const ctx = canvas.getContext('2d');
+    let wavePhase = 0;
+    let waveAmplitude = 0;
+
+    function resizeCanvas() {
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawWave() {
+      requestAnimationFrame(drawWave);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const targetAmp = (isListening || isSpeaking) ? 1.0 : 0.08;
+      waveAmplitude += (targetAmp - waveAmplitude) * 0.1;
+      wavePhase += 0.08;
+
+      const centerY = canvas.height / 2;
+      const width = canvas.width;
+
+      const waves = [
+        { color: isListening ? 'rgba(239, 68, 68, 0.7)' : 'rgba(79, 70, 229, 0.7)', speed: 1, freq: 0.015, amp: 14 * waveAmplitude },
+        { color: isListening ? 'rgba(249, 115, 22, 0.5)' : 'rgba(6, 182, 212, 0.5)', speed: 1.4, freq: 0.02, amp: 10 * waveAmplitude },
+        { color: isListening ? 'rgba(251, 191, 36, 0.3)' : 'rgba(52, 211, 153, 0.3)', speed: 0.7, freq: 0.01, amp: 8 * waveAmplitude }
+      ];
+
+      waves.forEach(w => {
+        ctx.beginPath();
+        ctx.strokeStyle = w.color;
+        ctx.lineWidth = 2.5 * window.devicePixelRatio;
+        for (let x = 0; x < width; x += 3) {
+          const y = centerY + Math.sin(x * w.freq + wavePhase * w.speed) * w.amp;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
+    }
+    drawWave();
+
+    // ================= BUYRUQLARNI IJRO ETISH (DEMO + MQTT) =================
+    const mqttHost = "broker.hivemq.com";
+    const mqttPort = 8000;
+    const clientId = "VirtualESP32Client_" + Math.random().toString(16).substr(2, 8);
+    const client = new Paho.MQTT.Client(mqttHost, mqttPort, clientId);
+
+    function sendCommand(action, target, value = 0) {
+      if (config.workMode === 'demo') {
+        if (target === "all_lights") {
+          const turnOn = (action === "ON");
+          updateDeviceState('living_room', turnOn);
+          updateDeviceState('kitchen', turnOn);
+          updateDeviceState('bedroom', turnOn);
+          virtualHouse.living_room = turnOn;
+          virtualHouse.kitchen = turnOn;
+          virtualHouse.bedroom = turnOn;
+        } else if (target === "door") {
+          const isOpen = (action === "OPEN");
+          updateDeviceState('door', isOpen, isOpen ? "Ochiq" : "Qulflangan");
+          virtualHouse.door_locked = !isOpen;
+        } else {
+          const isActive = (action === "ON");
+          updateDeviceState(target, isActive);
+          virtualHouse[target] = isActive;
+        }
+      }
+
+      try {
+        if (client.isConnected()) {
+          const msg = new Paho.MQTT.Message(JSON.stringify({ action, target, value }));
+          msg.destinationName = "smarthouse/command";
+          client.send(msg);
+        }
+      } catch(e){}
+    }
+
+    function toggleDevice(target, isChecked) {
+      let action = isChecked ? "ON" : "OFF";
+      if (target === "door") action = isChecked ? "OPEN" : "CLOSE";
+      sendCommand(action, target);
+      updateDeviceState(target, isChecked);
+    }
+
+    function updateDeviceState(target, isActive, customLabel = null) {
+      const card = document.getElementById('card-' + target);
+      const sw = document.getElementById('sw-' + target);
+      const lbl = document.getElementById('lbl-' + target);
+      if (!card || !sw) return;
+      sw.checked = isActive;
+      if (isActive) card.classList.add('active'); else card.classList.remove('active');
+      if (lbl) lbl.innerText = customLabel || (isActive ? "Yoniq" : "O'chiq");
+
+      if (target === "door") {
+        const doorIcon = document.getElementById('icon-door');
+        if (doorIcon) {
+          doorIcon.className = isActive ? "fa-solid fa-door-open" : "fa-solid fa-door-closed";
+        }
+      }
+      if (target === "fan") {
+        const fanIcon = document.getElementById('icon-fan');
+        if (fanIcon) {
+          fanIcon.style.animation = isActive ? "fa-spin 1s infinite linear" : "none";
+        }
+      }
+    }
+
+    // ================= REAL-TIME NUTQNI QABUL QILISH (STT) =================
+    function initSpeechRecognition() {
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = config.sttLang;
+        recognition.continuous = false;
+        recognition.interimResults = true; // Real vaqtda so'zlarni ko'rsatish
+        recognition.maxAlternatives = 1;
+
+        let lastRecognizedText = "";
+
+        recognition.onstart = function() {
+          isListening = true;
+          lastRecognizedText = "";
+          orbContainer.className = "orb-container listening";
+          orbIcon.className = "fa-solid fa-microphone-lines";
+          micBtn.classList.add('listening');
+          statusPillText.innerText = "Tinglanmoqda...";
+          speechBox.innerHTML = '<span style="color:#60A5FA;">Gapiring, tinglayapman...</span>';
+          subText.innerText = "Ovozingiz real vaqtda aniqlanmoqda...";
+          playChime(440, 880);
+        };
+
+        recognition.onresult = function(event) {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+
+          const currentText = (finalTranscript || interimTranscript).trim();
+          if (currentText) {
+            lastRecognizedText = currentText;
+            speechBox.innerText = `"${currentText}"`;
+            subText.innerText = "Qabul qilinmoqda...";
+          }
+
+          if (finalTranscript) {
+            clearTimeout(speechSilenceTimer);
+            handleRecognizedSpeech(finalTranscript);
+          }
+        };
+
+        recognition.onerror = function(event) {
+          console.warn("STT Error:", event.error);
+          stopListening();
+
+          if (event.error === 'no-speech') {
+            if (lastRecognizedText && lastRecognizedText.length >= 2) {
+              handleRecognizedSpeech(lastRecognizedText);
+            } else {
+              subText.innerText = "Ovoz eshitilmadi. Qayta gapiring yoki sharni bosing.";
+              statusPillText.innerText = "Ovoz aniqlanmadi";
+            }
+          } else if (event.error === 'language-not-supported' && config.sttLang === 'uz-UZ') {
+            setSttLang('ru-RU');
+            subText.innerText = "Brauzeringiz uchun rus tili STT ulandi. Gapiring!";
+          } else if (event.error === 'not-allowed') {
+            subText.innerText = "Mikrofondan foydalanishga ruxsat berilmagan.";
+          }
+        };
+
+        recognition.onend = function() {
+          isListening = false;
+          if (lastRecognizedText && lastRecognizedText.length >= 2 && !isSpeaking) {
+            // Oxirgi aytilgan gapni qayta ishlaymiz
+            const toProcess = lastRecognizedText;
+            lastRecognizedText = "";
+            handleRecognizedSpeech(toProcess);
+          } else {
+            stopListening();
+          }
+        };
+      } else {
+        speechBox.innerText = "Brauzeringiz ovoz tanishni qo'llab-quvvatlamaydi.";
+      }
+    }
+    initSpeechRecognition();
+    updateConfigUI();
+
+    function toggleVoice() {
+      if (isSpeaking) {
+        // Agar gapirayotgan bo'lsa darhol to'xtatamiz
+        stopSpeaking();
+        return;
+      }
+      if (isListening) {
+        keepListening = false;
+        if (recognition) {
+          try { recognition.stop(); } catch(e){}
+        }
+        stopListening();
+      } else {
+        keepListening = true;
+        startListening();
+      }
+    }
+
+    function startListening() {
+      if (recognition && !isListening && !isSpeaking) {
+        try {
+          recognition.lang = config.sttLang;
+          recognition.start();
+        } catch(e){
+          console.warn("Recognition start failed:", e);
+        }
+      }
+    }
+
+    function stopListening() {
+      isListening = false;
+      orbContainer.className = "orb-container";
+      orbIcon.className = "fa-solid fa-microphone";
+      micBtn.classList.remove('listening');
+      statusPillText.innerText = "Ovozli muloqot tayyor";
+    }
+
+    function stopSpeaking() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      isSpeaking = false;
+      orbContainer.className = "orb-container";
+      orbIcon.className = "fa-solid fa-microphone";
+      statusPillText.innerText = "Tayyor";
+      subText.innerText = "Mikrofonni bosib gapirishingiz mumkin";
+    }
+
+    async function handleRecognizedSpeech(text) {
+      const clean = text.trim();
+      if (!clean || clean.length < 2) return;
+      speechBox.innerText = `"${clean}"`;
+      playChime(880, 587);
+      await processSmartAI(clean);
+    }
+
+    // ================= OVOZLI JAVOB (TTS) =================
+    async function speakText(textToSpeak, shouldContinue = true) {
+      speechBox.innerText = textToSpeak;
+      isSpeaking = true;
+      orbContainer.className = "orb-container speaking";
+      orbIcon.className = "fa-solid fa-waveform-lines";
+      statusPillText.innerText = "Javob berilmoqda...";
+      subText.innerText = "Ovozli javob yangramoqda 🔊";
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(textToSpeak);
+        u.lang = config.sttLang;
+        u.rate = 1.05;
+        u.pitch = 1.0;
+        u.onend = () => onSpeechFinished(shouldContinue);
+        u.onerror = () => onSpeechFinished(shouldContinue);
+        window.speechSynthesis.speak(u);
+      } else {
+        onSpeechFinished(shouldContinue);
+      }
+    }
+
+    function onSpeechFinished(shouldContinue) {
+      isSpeaking = false;
+      orbContainer.className = "orb-container";
+      orbIcon.className = "fa-solid fa-microphone";
+      statusPillText.innerText = "Ovozli muloqot tayyor";
+      subText.innerText = "Tinglashga tayyorman";
+      if (config.continuousChat && keepListening && shouldContinue) {
+        setTimeout(startListening, 400);
+      } else {
+        stopListening();
+      }
+    }
+
+    function sendManualCommand() {
+      const input = document.getElementById('cmdInput');
+      const text = input.value.trim();
+      if (!text) return;
+      speechBox.innerText = `"${text}"`;
+      processSmartAI(text);
+      input.value = "";
+    }
+
+    // ================= ERKIN MULOQOT & SMART AI BRAIN =================
+    async function processSmartAI(raw) {
+      let text = raw.trim();
+      statusPillText.innerText = "O'ylanmoqda...";
+      subText.innerHTML = "<i class='fa-solid fa-sparkles fa-spin'></i> Javob tayyorlanmoqda...";
+
+      try {
+        const geminiResult = await callMultiModelGemini(text);
+        
+        // Aqlli uy buyrug'i bo'lsa bajaramiz
+        if (geminiResult.action && geminiResult.target && geminiResult.target !== "NONE") {
+          sendCommand(geminiResult.action, geminiResult.target);
+        }
+
+        // Erkin, tabiiy o'zbekcha javobni ovozda o'qiymiz
+        speakText(geminiResult.reply);
+      } catch (e) {
+        console.warn("Gemini API zaxira rejimga o'tmoqda:", e);
+        fallbackLocalIntent(text);
+      }
+    }
+
+    // Ko'p bosqichli ishonchli Gemini modeli (Waterfall fallback)
+    async function callMultiModelGemini(userPrompt) {
+      const fallbackModels = [
+        'gemini-3.5-flash',
+        'gemini-flash-lite-latest',
+        'gemini-3.7-flash',
+        'gemini-3.8-flash'
+      ];
+      
+      const houseContext = `
+Hozirgi uy holati:
+- Mehmonxona chirog'i: ${virtualHouse.living_room ? 'Yoniq' : 'O\'chiq'}
+- Oshxona chirog'i: ${virtualHouse.kitchen ? 'Yoniq' : 'O\'chiq'}
+- Yotoqxona chirog'i: ${virtualHouse.bedroom ? 'Yoniq' : 'O\'chiq'}
+- Ventilyator: ${virtualHouse.fan ? 'Yoniq' : 'O\'chiq'}
+- Eshik qulfi: ${virtualHouse.door_locked ? 'Qulflangan' : 'Ochiq'}
+- Harorat: ${virtualHouse.temperature.toFixed(1)}°C, Namlik: ${Math.round(virtualHouse.humidity)}%
+`;
+
+      const systemPrompt = `Sen zamonaviy aqlli uyning eng zukko, samimiy va erkin so'zlashuvchi sun'iy intellekt yordamchisisan.
+Sen foydalanuvchi bilan xohlagan mavzuda (fan, texnologiya, falsafa, hazillar, kundalik hayot) erkin, do'stona va jonli suhbatlasha olasan.
+Shu bilan birga, agar foydalanuvchi uydagi biror narsani o'zgartirishni so'rasa (chiroq, eshik, ventilyator, harorat), buni ham darhol bajarasasan.
+
+${houseContext}
+
+Qat'iy ravishda faqat toza JSON formatida javob ber:
+{
+  "reply": "O'zbek tilidagi samimiy, erkin va tabiiy javobing (1-2 gapda, qisqa va lo'nda)",
+  "action": "ON | OFF | OPEN | CLOSE | NONE",
+  "target": "living_room | kitchen | bedroom | fan | door | all_lights | NONE"
+}`;
+
+      for (const model of fallbackModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\nFoydalanuvchi: ${userPrompt}` }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+              const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+              if (parsed.reply) return parsed;
+            }
+          }
+        } catch (err) {
+          console.warn(`Model ${model} xatosi:`, err);
+        }
+      }
+
+      throw new Error("Barcha Gemini modellari band");
+    }
+
+    // Mahalliy Zaxira Intent Parser (Internet yoki API uzilganda ham 100% ishlaydi)
+    function fallbackLocalIntent(raw) {
+      let clean = raw.toLowerCase();
+      let action = "NONE";
+      let target = "NONE";
+      let reply = "Buyrug'ingizni bajaryapman.";
+
+      const isTurnOn = clean.includes("yoq") || clean.includes("och") || clean.includes("boshla") || clean.includes("ishlat");
+      const isTurnOff = clean.includes("o'ch") || clean.includes("ochir") || clean.includes("yop") || clean.includes("to'xtat");
+
+      if (clean.includes("mehmonxona") || clean.includes("zal")) {
+        action = isTurnOff ? "OFF" : "ON";
+        target = "living_room";
+        reply = action === "ON" ? "Mehmonxona chirog'i yoqildi." : "Mehmonxona chirog'i o'chirildi.";
+      } else if (clean.includes("oshxona")) {
+        action = isTurnOff ? "OFF" : "ON";
+        target = "kitchen";
+        reply = action === "ON" ? "Oshxona chirog'i yoqildi." : "Oshxona chirog'i o'chirildi.";
+      } else if (clean.includes("yotoqxona") || clean.includes("spalnya")) {
+        action = isTurnOff ? "OFF" : "ON";
+        target = "bedroom";
+        reply = action === "ON" ? "Yotoqxona chirog'i yoqildi." : "Yotoqxona chirog'i o'chirildi.";
+      } else if (clean.includes("eshik")) {
+        action = isTurnOff ? "CLOSE" : "OPEN";
+        target = "door";
+        reply = action === "OPEN" ? "Eshik qulfi ochildi, marhamat." : "Eshik qulflandi.";
+      } else if (clean.includes("ventilyator") || clean.includes("fan") || clean.includes("shamol")) {
+        action = isTurnOff ? "OFF" : "ON";
+        target = "fan";
+        reply = action === "ON" ? "Ventilyator ishga tushirildi." : "Ventilyator o'chirildi.";
+      } else if (clean.includes("hamma") && (clean.includes("chiroq") || clean.includes("yorug'lik"))) {
+        action = isTurnOff ? "OFF" : "ON";
+        target = "all_lights";
+        reply = action === "ON" ? "Uydagi barcha chiroqlar yoqildi." : "Barcha chiroqlar o'chirildi.";
+      } else if (clean.includes("harorat") || clean.includes("havo") || clean.includes("namlik")) {
+        reply = `Hozir xonada harorat ${virtualHouse.temperature.toFixed(1)} daraja, namlik esa ${Math.round(virtualHouse.humidity)} foiz.`;
+      } else if (clean.includes("salom") || clean.includes("assalomu")) {
+        reply = "Assalomu alaykum! Men aqlli uy yordamchingizman. Qanday yordam bera olaman?";
+      } else {
+        reply = "Albatta, siz bilan suhbatlashishdan mamnunman. Buyrug'ingizni ayting.";
+      }
+
+      if (action !== "NONE" && target !== "NONE") {
+        sendCommand(action, target);
+      }
+      speakText(config.shortAnswers ? (action === "ON" || action === "OPEN" ? "Bajarildi." : "O'chirildi.") : reply);
+    }
+  </script>
+</body>
+</html>

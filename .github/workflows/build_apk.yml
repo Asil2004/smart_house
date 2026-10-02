@@ -1,0 +1,44 @@
+name: Avtomatik APK Yig'ish (Build APK)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Qo'lda ishga tushirish imkoniyati
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Kodni yuklab olish
+      uses: actions/checkout@v4
+
+    - name: Java muhitini o'rnatish
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Flutter SDK o'rnatish
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.x'
+        channel: 'stable'
+
+    - name: Android loyihasini to'ldirish (Scaffold Android)
+      working-directory: ./mobile_app
+      run: |
+        cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml 2>/dev/null || true
+        flutter create . --platforms=android --project-name=smart_house_app
+        cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml 2>/dev/null || true
+        flutter pub get
+
+    - name: Android APK faylni yig'ish (Build APK)
+      working-directory: ./mobile_app
+      run: flutter build apk --release
+
+    - name: APK faylni saqlash va yuklab olishga chiqarish
+      uses: actions/upload-artifact@v4
+      with:
+        name: SmartHouse-AI-APK
+        path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
